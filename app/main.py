@@ -9,7 +9,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title='Finance Intelligence Platform', version='1.0.0')
 
 # Mount routers
-app.include_router(users.router, prefix="/api/v1/users", tags=["user-create-api"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["user"])
 
 @app.get("/")
 def root():
