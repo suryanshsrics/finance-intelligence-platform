@@ -1,4 +1,4 @@
-from app.schemas.schema import UserCreate
+from app.schemas.schema import UserCreate, UserUpdate
 from app.database import get_db
 from sqlalchemy.orm import Session
 from sqlalchemy import select, insert
@@ -28,5 +28,41 @@ def create_user_service(db:Session, user_data: UserCreate):
         db.rollback()
         raise
 
-
     return new_user
+
+def user_list_service(db: Session):
+    stmt = select(User)
+    users = db.execute(stmt).scalars().all()
+    return users
+
+def user_by_id_service(id: int, db: Session):
+    stmt = select(User).where(User.user_id == id)
+    
+    user = db.execute(stmt).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found. ")
+    return user
+        
+def user_update_service(id: int, user_updated: UserUpdate, db:Session):
+    check_stmt = select(User).where(User.user_id == id)
+    user = db.execute(check_stmt).scalar_one_or_none() # not just a flag but the actual User object
+    if not user:
+        raise HTTPException(status_code=404, detail="This user does not exist. ")
+    
+    email_new = user_updated.email
+    check_duplicate_email_stmt = select(User).where(User.email == email_new, 
+                                                    User.user_id != id)
+    existing_email = db.execute(check_duplicate_email_stmt).scalar_one_or_none()
+    if existing_email:
+        raise HTTPException(status_code=409, detail="User with provided email already exists")
+    
+    # Update the ORM object
+    user.user_name = user_updated.user_name
+    user.email = user_updated.email
+
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+
