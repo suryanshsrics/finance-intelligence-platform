@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, status, Depends
 from sqlalchemy.orm import Session
-from app.schemas.schema import UserCreate, UserResponseSchema, UserUpdate
+from app.schemas.user_schema import UserCreate, UserResponseSchema, UserUpdate
 from app.services.user_services import *
 from app.database import get_db
 

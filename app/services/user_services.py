@@ -1,4 +1,4 @@
-from app.schemas.schema import UserCreate, UserUpdate
+from app.schemas.user_schema import UserCreate, UserUpdate
 from app.database import get_db
 from sqlalchemy.orm import Session
 from sqlalchemy import select, insert
