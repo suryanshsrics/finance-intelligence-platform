@@ -25,3 +25,8 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
 @router.put("/update-user", response_model=UserResponseSchema, status_code=status.HTTP_200_OK)
 def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
     return user_update_service(user_id, user_update, db)
+
+
+@router.delete("/delete-user", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    return user_delete_service(user_id, db)

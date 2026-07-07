@@ -45,7 +45,7 @@ def user_by_id_service(id: int, db: Session):
         
 def user_update_service(id: int, user_updated: UserUpdate, db:Session):
     check_stmt = select(User).where(User.user_id == id)
-    user = db.execute(check_stmt).scalar_one_or_none() # not just a flag but the actual User object
+    user = db.execute(check_stmt).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="This user does not exist. ")
     
@@ -65,4 +65,11 @@ def user_update_service(id: int, user_updated: UserUpdate, db:Session):
 
     return user
 
-
+def user_delete_service(id: int, db: Session):
+    check_user_exists_stmt = select(User).where(User.user_id == id)
+    user = db.execute(check_user_exists_stmt).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    
+    db.delete(user)
+    db.commit()
