@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, status, Depends
 from sqlalchemy.orm import Session
-from app.schemas.schema import UserCreate, UserResponseSchema, UserListResponseSchema, UserUpdate
+from app.schemas.schema import UserCreate, UserResponseSchema, UserUpdate
 from app.services.user_services import *
 from app.database import get_db
 
@@ -12,7 +12,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     return create_user_service(db, user)
 
 
-@router.get("/user-list", response_model=List[UserListResponseSchema], status_code=status.HTTP_200_OK)
+@router.get("/user-list", response_model=List[UserResponseSchema], status_code=status.HTTP_200_OK)
 def get_user_list(db: Session = Depends(get_db)):
     return user_list_service(db)
     

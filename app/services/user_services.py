@@ -5,6 +5,14 @@ from sqlalchemy import select, insert
 from fastapi import Depends, HTTPException
 from app.models.user_model import User
 
+
+def get_user_or_404(db: Session, user_id: int, detail: str = "User not found.") -> User:
+    stmt = select(User).where(User.user_id == user_id)
+    user = db.execute(stmt).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail=detail)
+    return user
+
 def create_user_service(db:Session, user_data: UserCreate):
     # check if user exists in database
     stmt = select(User).where(User.email == user_data.email)
@@ -36,18 +44,10 @@ def user_list_service(db: Session):
     return users
 
 def user_by_id_service(id: int, db: Session):
-    stmt = select(User).where(User.user_id == id)
+    return get_user_or_404(db, id)
     
-    user = db.execute(stmt).scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found. ")
-    return user
-        
 def user_update_service(id: int, user_updated: UserUpdate, db:Session):
-    check_stmt = select(User).where(User.user_id == id)
-    user = db.execute(check_stmt).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="This user does not exist. ")
+    user = get_user_or_404(db, id, detail="This user does not exist. ")
     
     email_new = user_updated.email
     check_duplicate_email_stmt = select(User).where(User.email == email_new, 
@@ -66,10 +66,7 @@ def user_update_service(id: int, user_updated: UserUpdate, db:Session):
     return user
 
 def user_delete_service(id: int, db: Session):
-    check_user_exists_stmt = select(User).where(User.user_id == id)
-    user = db.execute(check_user_exists_stmt).scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found.")
+    user = get_user_or_404(db, id)
     
     db.delete(user)
     db.commit()
