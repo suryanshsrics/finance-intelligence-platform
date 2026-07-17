@@ -217,32 +217,49 @@ class SBIParser:
             transactions.append(current_transaction)
 
         return transactions
+    
+    def parse_statement(self, raw_text: str):
+        metadata = self.extract_metadata(raw_text)
+        transaction_blocks = self.split_transaction_blocks(raw_text)
+
+        transactions = []
+        for block in transaction_blocks:
+            parsed = self.parse_transaction(block)
+            transactions.append(parsed)
+
+        return {
+            "metadata": metadata,
+            "transactions": transactions
+        }
 
 
 '''Wrote this code for faster testing.
  Commented it out now. '''
 
 # if __name__ == "__main__":
-
 #     from pathlib import Path
+#     from pprint import pprint
 
-#     text = Path("parsed_statement.txt").read_text(
-#         encoding="utf-8"
-#     )
+#     # Read extracted text
+#     text = Path("parsed_statement.txt").read_text(encoding="utf-8")
 
 #     parser = SBIParser()
 
-#     transaction_blocks = parser.split_transaction_blocks(text)
+#     # Parse complete statement
+#     parsed_statement = parser.parse_statement(text)
 
-#     print(f"Found {len(transaction_blocks)} transaction blocks\n")
+#     print("=" * 70)
+#     print("METADATA")
+#     print("=" * 70)
+#     pprint(parsed_statement["metadata"])
 
-#     for i, block in enumerate(transaction_blocks, start=1):
+#     print()
 
-#         print("=" * 70)
-#         print(f"Transaction {i}")
-#         print("=" * 70)
+#     print("=" * 70)
+#     print(f"TOTAL TRANSACTIONS: {len(parsed_statement['transactions'])}")
+#     print("=" * 70)
 
-#         parsed_transaction = parser.parse_transaction(block)
-
-#         print(parsed_transaction)
-#         print()
+#     for i, transaction in enumerate(parsed_statement["transactions"], start=1):
+#         print(f"\nTransaction {i}")
+#         print("-" * 40)
+#         pprint(transaction)
