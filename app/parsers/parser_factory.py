@@ -7,5 +7,5 @@ def get_parser(bank_name: str):
     
     raise UnsupportedBankError(f"Parser for {bank_name} is not complete.")
     
-parser = get_parser("State Bank of India")
-print(type(parser))
+# parser = get_parser("State Bank of India")
+# print(type(parser))
