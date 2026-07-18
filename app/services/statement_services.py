@@ -9,6 +9,7 @@ from app.models.user_model import User
 from app.schemas.statement_schema import StatementCreate
 from app.parsers.statement_parser import *
 from app.parsers.parser_factory import *
+from app.categorizer.transaction_categorizer import TransactionCategorizer
 from app.database import get_db
 
 
@@ -189,14 +190,18 @@ def statement_upload_service(user_id: int, file: UploadFile,
         db.add(statement)
         db.flush()
 
+        categorizer = TransactionCategorizer()
+
         transaction_models = []
         for transaction in transactions:
+            category = categorizer.categorize(transaction['description'])
             model = Transaction(
                 statement_id=statement.statement_id,
                 transaction_date=datetime.strptime(transaction['transaction_date'], "%d/%m/%Y").date(),
                 description=transaction['description'],
                 amount=Decimal(transaction['amount']),
                 transaction_type=transaction['transaction_type'],
+                category=category,
                 balance_after_transaction=Decimal(transaction['balance'])
             )
             transaction_models.append(model)
