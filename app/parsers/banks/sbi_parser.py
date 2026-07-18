@@ -65,16 +65,37 @@ class SBIParser:
         block_text = " ".join(transaction_block).upper()
 
         transaction_type = None
+        transaction_line_upper = transaction_line.upper()
 
-        if "/CR/" in transaction_line.upper():
+        if "/CR/" in transaction_line_upper:
             transaction_type = "CREDIT"
 
-        elif (
-            "/DR/" in transaction_line.upper()
-            or "DIRECT DR" in block_text
-            or "WDL TFR" in block_text
-        ):
+        elif "/DR/" in transaction_line_upper:
             transaction_type = "DEBIT"
+
+        elif "DIRECT DR" in block_text or "WDL TFR" in block_text:
+            transaction_type = "DEBIT"
+
+        # If still unknown, infer from which trailing column contains the amount.
+        # Pattern examples:
+        #  - Credit:  "... - - 1,252.00 15,202.17"  (dash, dash, credit, balance)
+        #  - Debit:   "... - 300.00 - 3,240.16"    (dash, debit, dash, balance)
+        if transaction_type is None:
+            credit_col_match = re.search(
+                r"\s-\s-\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s+(\d{1,3}(?:,\d{3})*(?:\.\d{2}))$",
+                transaction_line,
+            )
+
+            debit_col_match = re.search(
+                r"\s-\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s+-\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))$",
+                transaction_line,
+            )
+
+            if credit_col_match:
+                transaction_type = "CREDIT"
+
+            elif debit_col_match:
+                transaction_type = "DEBIT"
 
         # -----------------------
         # Description
@@ -167,6 +188,9 @@ class SBIParser:
         transaction_markers = (
             "DEP TFR",
             "WDL TFR",
+            "ATM WDL",
+            "POS ATM PURCH OTHPG",
+            "POS ATM",
             "DIRECT DR",
             "DIRECT CR",
         )
@@ -198,11 +222,11 @@ class SBIParser:
                 if (
                     current_transaction
                     and current_transaction[0].startswith(transaction_markers)
+                    and len(current_transaction) == 1
                 ):
+                    # Marker header has been seen; append the first transaction line.
                     current_transaction.append(line)
-
                 else:
-
                     if current_transaction:
                         transactions.append(current_transaction)
 
