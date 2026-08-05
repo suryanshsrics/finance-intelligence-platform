@@ -6,3 +6,12 @@ class DashboardSummaryResponse(BaseModel):
     net_savings: float
     total_transactions: int
     total_statements: int
+
+class CategoryBreakdownResponse(BaseModel):
+    category: str
+    amount: float
+
+class MonthlyTrendResponse(BaseModel):
+    month: str
+    income: float
+    expense: float
