@@ -93,3 +93,65 @@ def get_monthly_trend(user_id: int, db: Session):
         }
         for row in result
     ]
+
+def highest_spending_category(user_id: int, db: Session):
+    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    result = db.execute(select(Transaction.category, func.sum(Transaction.amount).label("highest_spent_amount"))
+                        .join(Statement)
+                        .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
+                        .group_by(Transaction.category).order_by(func.sum(Transaction.amount).desc()).limit(1)).first()
+
+    if not result:
+        return {
+            "highest_spending_category": None,
+            "highest_spent_amount": 0.0
+        }
+    
+    return {
+        "highest_spending_category": result.category,
+        "highest_spent_amount": float(result.highest_spent_amount)
+    }
+
+def average_monthly_expense(user_id: int, db: Session):
+    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    month = func.to_char(Transaction.transaction_date, "YYYY-MM").label("month")
+    monthly_expense_subquery = select(month, func.sum(Transaction.amount).label("monthly_expense")).join(Statement).where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT').group_by(month).subquery()
+
+    average_monthly_expense = db.execute(select(func.avg(monthly_expense_subquery.c.monthly_expense))).scalar_one()
+    if average_monthly_expense is None:
+        return {"average_monthly_expense": 0}
+
+    return {"average_monthly_expense": average_monthly_expense}
+
+def largest_transaction(user_id: int, db: Session):
+    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    result = db.execute(select(Transaction.amount, Transaction.description, Transaction.transaction_date, Transaction.category).join(Statement)
+    .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
+    .order_by(Transaction.amount.desc()).limit(1)).first()
+
+    if result is None:
+        return {"amount": 0.0}
+    return {
+        "amount": result.amount,
+        "description": result.description,
+        "transaction_date": result.transaction_date,
+        "category": result.category
+    }
+
+def get_spending_insights(user_id: int, db: Session):
+    highest_category = highest_spending_category(user_id=user_id, db=db)
+    average_expense = average_monthly_expense(user_id=user_id, db=db)
+    largest_debit = largest_transaction(user_id=user_id, db=db)
+    largest_tx = {
+                "largest_debit_amount": largest_debit["amount"],
+                "description": largest_debit['description'],
+                "transaction_date": largest_debit['transaction_date'],
+                "category": largest_debit['category']
+            }
+
+    return {
+        "highest_spending_category": highest_category["highest_spending_category"],
+        "highest_spent_amount": highest_category["highest_spent_amount"],
+        "average_monthly_expense": average_expense["average_monthly_expense"],
+        "largest_transaction": largest_tx
+    }
