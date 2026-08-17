@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from app.models.statement_model import Statement
 from app.models.transaction_model import Transaction
 from app.models.user_model import User
-
+from app.schemas.dashboard_schema import SpendingInsightsResponse
 
 def get_user_or_404(user_id: int, db: Session, detail: str = "User not found") -> User:
     stmt = select(User).where(User.user_id == user_id)
@@ -138,6 +138,50 @@ def largest_transaction(user_id: int, db: Session):
         "category": result.category
     }
 
+def get_total_income_and_expense(user_id: int, db: Session):
+    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    total_income = db.execute(select(func.sum(Transaction.amount).label("total_income"))
+                              .join(Statement)
+                              .where(Statement.user_id == user_id, Transaction.transaction_type == 'CREDIT')).scalar_one()
+    total_expense = db.execute(select(func.sum(Transaction.amount).label("total_expense"))
+                               .join(Statement)
+                               .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')).scalar_one()
+
+    if total_income is None:
+        return {
+            "total_income": 0,
+            "total_expense": total_expense
+        }
+    if total_expense is None:
+        return {
+            "total_income": total_income,
+            "total_expense": 0
+        }
+
+    return {
+        "total_income": total_income,
+        "total_expense": total_expense
+    }
+
+def get_most_frequent_spending_category(user_id: int, db: Session):
+    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    result = db.execute(select(Transaction.category.label("category"), func.count(Transaction.category).label("transaction_count"))
+                        .join(Statement)
+                        .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
+                        .group_by(Transaction.category)
+                        .order_by(func.count(Transaction.category).desc()).limit(1)).first()
+
+    if result:
+        return {
+            "most_frequent_spending_category": result.category,
+            "most_frequent_spending_category_transaction_count": result.transaction_count
+        }
+    else:
+        return {
+        "most_frequent_spending_category": None,
+        "most_frequent_spending_category_transaction_count": 0
+        }
+
 def get_spending_insights(user_id: int, db: Session):
     highest_category = highest_spending_category(user_id=user_id, db=db)
     average_expense = average_monthly_expense(user_id=user_id, db=db)
@@ -148,10 +192,16 @@ def get_spending_insights(user_id: int, db: Session):
                 "transaction_date": largest_debit['transaction_date'],
                 "category": largest_debit['category']
             }
+    total_income_expense = get_total_income_and_expense(user_id=user_id, db=db)
+    most_frequent_category = get_most_frequent_spending_category(user_id=user_id, db=db)
 
     return {
         "highest_spending_category": highest_category["highest_spending_category"],
         "highest_spent_amount": highest_category["highest_spent_amount"],
         "average_monthly_expense": average_expense["average_monthly_expense"],
-        "largest_transaction": largest_tx
+        "largest_transaction": largest_tx,
+        "total_income": total_income_expense["total_income"] or 0,
+        "total_expense": total_income_expense["total_expense"] or 0,
+        "most_frequent_spending_category": most_frequent_category['most_frequent_spending_category'] or None,
+        "most_frequent_spending_category_transaction_count": most_frequent_category['most_frequent_spending_category_transaction_count'] or 0
     }

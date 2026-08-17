@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # encode the url as '@' character in password is problemeatic
 DATABASE_URL = "postgresql+psycopg://postgres:REDACTED@localhost:5432/finance_intelligence"
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 
 SessionLocal = sessionmaker(autoflush=False, autocommit=False, bind=engine)
 

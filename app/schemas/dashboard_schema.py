@@ -28,6 +28,7 @@ class SpendingInsightsResponse(BaseModel):
     highest_spent_amount: float
     average_monthly_expense: float
     largest_transaction: LargestTransactionResponse | None = None
-    # total_income: float
-    # total_expense: float
-    # most_frequent_spending_category: str
+    total_income: float
+    total_expense: float
+    most_frequent_spending_category: str | None = None
+    most_frequent_spending_category_transaction_count: int = 0
