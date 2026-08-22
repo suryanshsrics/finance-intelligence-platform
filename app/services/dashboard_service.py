@@ -1,4 +1,5 @@
 from sqlalchemy import select, func, case
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -9,20 +10,29 @@ from app.schemas.dashboard_schema import SpendingInsightsResponse
 
 def get_user_or_404(user_id: int, db: Session, detail: str = "User not found") -> User:
     stmt = select(User).where(User.user_id == user_id)
-    user = db.execute(stmt).scalar_one_or_none()
+    try:
+        user = db.execute(stmt).scalar_one_or_none()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
     if user is None:
         raise HTTPException(status_code=404, detail=detail)
     return user
 
 def get_dashboard_summary(user_id: int, db: Session):
 
-    total_statements = db.scalar(select(func.count()).select_from(Statement).where(Statement.user_id == user_id))
-
-    total_transactions = db.scalar(select(func.count()).select_from(Transaction).join(Statement).where(Statement.user_id == user_id))
-
-    total_income = db.scalar(select(func.sum(Transaction.amount)).join(Statement).where(Statement.user_id == user_id, Transaction.transaction_type == 'CREDIT')) or 0
-
-    total_expenditure = db.scalar(select(func.sum(Transaction.amount)).join(Statement).where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')) or 0
+    try:
+        total_statements = db.scalar(select(func.count()).select_from(Statement).where(Statement.user_id == user_id))
+        total_transactions = db.scalar(select(func.count()).select_from(Transaction).join(Statement).where(Statement.user_id == user_id))
+        total_income = db.scalar(select(func.sum(Transaction.amount)).join(Statement).where(Statement.user_id == user_id, Transaction.transaction_type == 'CREDIT')) or 0
+        total_expenditure = db.scalar(select(func.sum(Transaction.amount)).join(Statement).where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')) or 0
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
 
     net_savings = total_income - total_expenditure
 
@@ -36,21 +46,27 @@ def get_dashboard_summary(user_id: int, db: Session):
 
 
 def get_category_breakdown(user_id: int, db: Session):
-    user = get_user_or_404(user_id, db, detail='This user does not exist')
+    # user = get_user_or_404(user_id, db, detail='This user does not exist')
 
-    result = db.execute(
-    select(
-        Transaction.category,
-        func.sum(Transaction.amount).label("amount"),
-    )
-    .join(Statement)
-    .where(
-        Statement.user_id == user_id,
-        Transaction.transaction_type == "DEBIT",
-    )
-    .group_by(Transaction.category)
-    .order_by(func.sum(Transaction.amount).desc())
-    ).all()
+    try:
+        result = db.execute(
+        select(
+            Transaction.category,
+            func.sum(Transaction.amount).label("amount"),
+        )
+        .join(Statement)
+        .where(
+            Statement.user_id == user_id,
+            Transaction.transaction_type == "DEBIT",
+        )
+        .group_by(Transaction.category)
+        .order_by(func.sum(Transaction.amount).desc())
+        ).all()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
 
     return[
         {
@@ -61,7 +77,7 @@ def get_category_breakdown(user_id: int, db: Session):
     ]
 
 def get_monthly_trend(user_id: int, db: Session):
-    user = get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    # user = get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
     month = func.to_char(Transaction.transaction_date, "YYYY-MM").label("month")
     query = select(
         month, func.sum(
@@ -83,7 +99,13 @@ def get_monthly_trend(user_id: int, db: Session):
         ).label("expense")
     ).join(Statement).where(Statement.user_id == user_id).group_by(month).order_by(month)
 
-    result = db.execute(query).all()
+    try:
+        result = db.execute(query).all()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
 
     return[
         {
@@ -95,11 +117,17 @@ def get_monthly_trend(user_id: int, db: Session):
     ]
 
 def highest_spending_category(user_id: int, db: Session):
-    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
-    result = db.execute(select(Transaction.category, func.sum(Transaction.amount).label("highest_spent_amount"))
-                        .join(Statement)
-                        .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
-                        .group_by(Transaction.category).order_by(func.sum(Transaction.amount).desc()).limit(1)).first()
+    # get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    try:
+        result = db.execute(select(Transaction.category, func.sum(Transaction.amount).label("highest_spent_amount"))
+                            .join(Statement)
+                            .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
+                            .group_by(Transaction.category).order_by(func.sum(Transaction.amount).desc()).limit(1)).first()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
 
     if not result:
         return {
@@ -113,21 +141,33 @@ def highest_spending_category(user_id: int, db: Session):
     }
 
 def average_monthly_expense(user_id: int, db: Session):
-    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    # get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
     month = func.to_char(Transaction.transaction_date, "YYYY-MM").label("month")
     monthly_expense_subquery = select(month, func.sum(Transaction.amount).label("monthly_expense")).join(Statement).where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT').group_by(month).subquery()
 
-    average_monthly_expense = db.execute(select(func.avg(monthly_expense_subquery.c.monthly_expense))).scalar_one()
+    try:
+        average_monthly_expense = db.execute(select(func.avg(monthly_expense_subquery.c.monthly_expense))).scalar_one()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
     if average_monthly_expense is None:
         return {"average_monthly_expense": 0}
 
     return {"average_monthly_expense": average_monthly_expense}
 
 def largest_transaction(user_id: int, db: Session):
-    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
-    result = db.execute(select(Transaction.amount, Transaction.description, Transaction.transaction_date, Transaction.category).join(Statement)
-    .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
-    .order_by(Transaction.amount.desc()).limit(1)).first()
+    # get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    try:
+        result = db.execute(select(Transaction.amount, Transaction.description, Transaction.transaction_date, Transaction.category).join(Statement)
+        .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
+        .order_by(Transaction.amount.desc()).limit(1)).first()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
 
     if result is None:
         return {"amount": 0.0}
@@ -139,13 +179,19 @@ def largest_transaction(user_id: int, db: Session):
     }
 
 def get_total_income_and_expense(user_id: int, db: Session):
-    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
-    total_income = db.execute(select(func.sum(Transaction.amount).label("total_income"))
-                              .join(Statement)
-                              .where(Statement.user_id == user_id, Transaction.transaction_type == 'CREDIT')).scalar_one()
-    total_expense = db.execute(select(func.sum(Transaction.amount).label("total_expense"))
-                               .join(Statement)
-                               .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')).scalar_one()
+    # get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    try:
+        total_income = db.execute(select(func.sum(Transaction.amount).label("total_income"))
+                                  .join(Statement)
+                                  .where(Statement.user_id == user_id, Transaction.transaction_type == 'CREDIT')).scalar_one()
+        total_expense = db.execute(select(func.sum(Transaction.amount).label("total_expense"))
+                                   .join(Statement)
+                                   .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')).scalar_one()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
 
     if total_income is None:
         return {
@@ -164,12 +210,18 @@ def get_total_income_and_expense(user_id: int, db: Session):
     }
 
 def get_most_frequent_spending_category(user_id: int, db: Session):
-    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
-    result = db.execute(select(Transaction.category.label("category"), func.count(Transaction.category).label("transaction_count"))
-                        .join(Statement)
-                        .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
-                        .group_by(Transaction.category)
-                        .order_by(func.count(Transaction.category).desc()).limit(1)).first()
+    # get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
+    try:
+        result = db.execute(select(Transaction.category.label("category"), func.count(Transaction.category).label("transaction_count"))
+                            .join(Statement)
+                            .where(Statement.user_id == user_id, Transaction.transaction_type == 'DEBIT')
+                            .group_by(Transaction.category)
+                            .order_by(func.count(Transaction.category).desc()).limit(1)).first()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database service unavailable") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred") from None
 
     if result:
         return {
@@ -183,6 +235,8 @@ def get_most_frequent_spending_category(user_id: int, db: Session):
         }
 
 def get_spending_insights(user_id: int, db: Session):
+    # check if the user exists
+    get_user_or_404(user_id=user_id, db=db, detail="This user does not exist")
     highest_category = highest_spending_category(user_id=user_id, db=db)
     average_expense = average_monthly_expense(user_id=user_id, db=db)
     largest_debit = largest_transaction(user_id=user_id, db=db)
