@@ -2,6 +2,8 @@ from sqlalchemy import URL, create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.utils.settings import settings
 
+# testing git connection
+
 DATABASE_URL = URL.create(
     drivername="postgresql+psycopg",
     username=settings.database_user,
