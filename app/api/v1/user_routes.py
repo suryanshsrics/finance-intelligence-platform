@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.schemas.user_schema import UserCreate, UserResponseSchema, UserUpdate
 from app.services.user_services import *
 from app.database import get_db
+from app.auth.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -13,7 +14,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/user-list", response_model=List[UserResponseSchema], status_code=status.HTTP_200_OK)
-def get_user_list(db: Session = Depends(get_db)):
+def get_user_list(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     return user_list_service(db)
     
 

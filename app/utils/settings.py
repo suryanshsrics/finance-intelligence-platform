@@ -6,7 +6,9 @@ class Settings(BaseSettings):
     database_name: str
     database_user: str
     database_password: str 
-
+    keycloak_url: str
+    keycloak_realm: str
+    keycloak_client_id: str
     model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()
