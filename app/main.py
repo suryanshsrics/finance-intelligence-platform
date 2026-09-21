@@ -3,12 +3,15 @@ from fastapi import FastAPI
 from app.database import Base, engine
 from app import models
 from app.api.v1 import dashboard_routes, user_routes, statement_routes
+from app.utils.settings import settings
 
 # Ensure database tables exist before serving requests.
 Base.metadata.create_all(bind=engine)
 
 # Create the FastAPI application instance.
-app = FastAPI(title='Finance Intelligence Platform', version='1.0.0')
+app = FastAPI(swagger_ui_init_oauth={"clientId": settings.keycloak_client_id,
+                                     "usePkceWithAuthorizationCodeGrant": True},
+              title='Finance Intelligence Platform', version='1.0.0')
 
 # Mount routers
 app.include_router(user_routes.router, prefix="/api/v1/users", tags=["user"])
