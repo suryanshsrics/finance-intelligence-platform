@@ -9,6 +9,7 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True)
+    keycloak_id = Column(String, unique=True, nullable=True)
     user_name = Column(String)
     email = Column(String, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
