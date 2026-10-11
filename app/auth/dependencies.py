@@ -10,6 +10,10 @@ from jwt.exceptions import (InvalidTokenError,
 
 from app.auth.keycloak import get_keycloak_public_key
 from app.utils.settings import settings
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from app.database import get_db
+from app.models.user_model import User
 
 oauth2_scheme = OAuth2AuthorizationCodeBearer(
                 authorizationUrl=f"{settings.keycloak_url}/realms/{settings.keycloak_realm}/protocol/openid-connect/auth",
@@ -17,14 +21,21 @@ oauth2_scheme = OAuth2AuthorizationCodeBearer(
 )
 issuer = f"{settings.keycloak_url}/realms/{settings.keycloak_realm}"
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     try:
         header = jwt.get_unverified_header(token)
         kid = header["kid"]
         public_key = get_keycloak_public_key(kid)
 
         payload = jwt.decode(token, public_key, algorithms=["RS256"], issuer=issuer, audience="account")
-        return payload
+        keycloak_id = payload["sub"]
+        result = db.execute(select(User).where(User.keycloak_id == keycloak_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User is not registered to the application.')
+        return user
+
+        # return payload
 
     except ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Token has expired.') from None

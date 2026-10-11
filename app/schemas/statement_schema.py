@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from datetime import date, datetime
 
 class StatementCreate(BaseModel):
-    user_id: int
+    # user_id: int
     file_name: str = Field(..., min_length=1)
     bank_name: str | None = None
     account_number_last4: int | None = None
